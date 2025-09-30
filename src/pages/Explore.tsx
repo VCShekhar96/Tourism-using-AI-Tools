@@ -20,6 +20,7 @@ const Explore: React.FC = () => {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [tollInfo, setTollInfo] = useState<{ [key: string]: TollInfo }>({});
   const [wishlistItems, setWishlistItems] = useState<Set<string>>(new Set());
+  const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
   const { user } = useAuth();
 
   const categories = [
@@ -76,7 +77,7 @@ const Explore: React.FC = () => {
         setUserLocation(location);
       } catch (error) {
         console.error('Failed to get location:', error);
-        toast.error('Could not get your location. Please enable location services for distance calculations.');
+        // Don't show error toast immediately, let user manually enable location
       } finally {
         setIsLoadingLocation(false);
       }
@@ -141,15 +142,159 @@ const Explore: React.FC = () => {
     }
   };
 
-  const DestinationCard: React.FC<{ destination: Destination; index: number }> = ({ destination, index }) => {
+  const handleViewDetails = (destination: Destination) => {
+    setSelectedDestination(destination);
+    if (!userLocation) {
+      toast.error('Please enable location services to see distance and toll information');
+    }
+  };
+
+  const DestinationDetailsModal: React.FC = () => {
+    if (!selectedDestination) return null;
+
     const distance = userLocation ? calculateDistance(
       userLocation.lat,
       userLocation.lng,
-      destination.latitude,
-      destination.longitude
+      selectedDestination.latitude,
+      selectedDestination.longitude
     ) : null;
 
-    const toll = tollInfo[destination.id];
+    const toll = tollInfo[selectedDestination.id];
+    const isInWishlist = wishlistItems.has(selectedDestination.id);
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        >
+          <div className="relative">
+            <img
+              src={selectedDestination.image_url}
+              alt={selectedDestination.name}
+              className="w-full h-64 object-cover rounded-t-2xl"
+            />
+            <button
+              onClick={() => setSelectedDestination(null)}
+              className="absolute top-4 right-4 bg-white bg-opacity-90 rounded-full p-2 hover:bg-opacity-100 transition-all"
+            >
+              ✕
+            </button>
+            <div className="absolute top-4 left-4 bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold capitalize">
+              {selectedDestination.category}
+            </div>
+          </div>
+
+          <div className="p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedDestination.name}</h2>
+                <div className="flex items-center space-x-4 text-sm text-gray-600">
+                  <div className="flex items-center space-x-1">
+                    <MapPin className="h-4 w-4" />
+                    <span>{selectedDestination.address}</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                    <span>{selectedDestination.rating} ({selectedDestination.reviews} reviews)</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => toggleWishlist(selectedDestination.id)}
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  isInWishlist
+                    ? 'bg-red-100 text-red-600 hover:bg-red-200'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Heart className={`h-6 w-6 ${isInWishlist ? 'fill-current' : ''}`} />
+              </button>
+            </div>
+
+            <p className="text-gray-700 mb-6 leading-relaxed">{selectedDestination.description}</p>
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Clock className="h-5 w-5 text-blue-600" />
+                  <span className="font-semibold text-gray-900">Duration</span>
+                </div>
+                <p className="text-gray-700">{selectedDestination.duration}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <IndianRupee className="h-5 w-5 text-green-600" />
+                  <span className="font-semibold text-gray-900">Entry Fee</span>
+                </div>
+                <p className="text-gray-700">₹{selectedDestination.entry_fee}</p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="font-semibold text-gray-900 mb-3">Best Time to Visit</h3>
+              <p className="text-gray-700">{selectedDestination.best_time}</p>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="font-semibold text-gray-900 mb-3">Highlights</h3>
+              <div className="flex flex-wrap gap-2">
+                {selectedDestination.highlights?.map((highlight, idx) => (
+                  <span
+                    key={idx}
+                    className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
+                  >
+                    {highlight}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {userLocation && distance && toll && (
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
+                  <MapPin className="h-5 w-5 mr-2 text-blue-600" />
+                  Distance & Travel Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{distance} km</div>
+                    <div className="text-sm text-gray-600">Distance from you</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">₹{toll.estimatedToll}</div>
+                    <div className="text-sm text-gray-600">Estimated toll (car)</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">{toll.duration}</div>
+                    <div className="text-sm text-gray-600">Travel time</div>
+                  </div>
+                </div>
+                <div className="mt-4 text-center text-sm text-gray-600">
+                  Route: {toll.route}
+                </div>
+              </div>
+            )}
+
+            {!userLocation && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center space-x-2 text-yellow-800">
+                  <MapPin className="h-5 w-5" />
+                  <span className="font-medium">Enable location services to see distance and toll information</span>
+                </div>
+              </div>
+            )}
+
+            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg transition-colors duration-200 font-semibold">
+              Book Now
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+  const DestinationCard: React.FC<{ destination: Destination; index: number }> = ({ destination, index }) => {
     const isInWishlist = wishlistItems.has(destination.id);
 
     return (
@@ -198,22 +343,10 @@ const Explore: React.FC = () => {
               </div>
             </div>
 
-            {distance && toll && (
-              <div className="bg-blue-50 rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-blue-700 font-medium">Distance from you:</span>
-                  <span className="text-blue-900 font-bold">{distance} km</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center space-x-1 text-blue-700">
-                    <Car className="h-4 w-4" />
-                    <span>Estimated toll:</span>
-                  </div>
-                  <span className="text-blue-900 font-bold">₹{toll.estimatedToll}</span>
-                </div>
-                <div className="text-xs text-blue-600">{toll.duration} • {toll.route}</div>
-              </div>
-            )}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="text-sm text-gray-600 mb-1">Best time to visit:</div>
+              <div className="text-sm font-medium text-gray-900">{destination.best_time}</div>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2 mb-4">
@@ -238,8 +371,11 @@ const Explore: React.FC = () => {
             >
               <Heart className={`h-5 w-5 ${isInWishlist ? 'fill-current' : ''}`} />
             </button>
-            <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors duration-200 font-semibold">
-              Book Now
+            <button 
+              onClick={() => handleViewDetails(destination)}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors duration-200 font-semibold"
+            >
+              View Details
             </button>
           </div>
         </div>
@@ -262,7 +398,7 @@ const Explore: React.FC = () => {
               Explore India's Wonders
             </h1>
             <p className="text-xl max-w-2xl mx-auto">
-              Discover amazing destinations across different categories with real-time distance and toll information
+              Discover amazing destinations across India. View details to see distance and toll information from your location.
             </p>
           </motion.div>
 
@@ -325,6 +461,23 @@ const Explore: React.FC = () => {
         </div>
       )}
 
+      {!userLocation && !isLoadingLocation && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <MapPin className="h-5 w-5 text-yellow-600 mr-3" />
+              <p className="text-yellow-800">Enable location services to see distance and toll information when viewing destination details.</p>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium"
+            >
+              Enable Location
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Destinations Grid */}
       <section className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -339,12 +492,6 @@ const Explore: React.FC = () => {
             <h2 className="text-2xl font-bold text-gray-900">
               {filteredDestinations.length} destinations found
             </h2>
-            {userLocation && (
-              <div className="flex items-center space-x-2 text-green-600">
-                <MapPin className="h-5 w-5" />
-                <span className="text-sm font-medium">Location detected - showing distances</span>
-              </div>
-            )}
           </div>
 
           {filteredDestinations.length === 0 ? (
@@ -372,6 +519,9 @@ const Explore: React.FC = () => {
           )}
         </div>
       </section>
+
+      {/* Destination Details Modal */}
+      <DestinationDetailsModal />
     </div>
   );
 };

@@ -1,5 +1,7 @@
 import { Destination } from '../types';
 
+// This file now serves as a fallback for the destinations data
+// The main data is loaded from the Supabase database
 export const destinations: Destination[] = [
   {
     id: '1',

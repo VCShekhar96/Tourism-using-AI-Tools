@@ -2,13 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Clock, Users, Star, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { destinations } from '../data/destinations';
+import { destinationService } from '../services/destinationService';
 import { getCurrentLocation, calculateDistance } from '../utils/location';
+import { Database } from '../types/database';
 import toast from 'react-hot-toast';
+
+type Destination = Database['public']['Tables']['destinations']['Row'];
 
 const Home: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [featuredDestinations, setFeaturedDestinations] = useState<Destination[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const getLocation = async () => {
@@ -18,7 +23,7 @@ const Home: React.FC = () => {
         setUserLocation(location);
         toast.success('Location detected successfully!');
       } catch (error) {
-        toast.error('Unable to get your location. Please enable location services.');
+        // Don't show error toast immediately
       } finally {
         setIsLoadingLocation(false);
       }
@@ -27,7 +32,24 @@ const Home: React.FC = () => {
     getLocation();
   }, []);
 
-  const featuredDestinations = destinations.slice(0, 3);
+  useEffect(() => {
+    const loadFeaturedDestinations = async () => {
+      try {
+        const allDestinations = await destinationService.getAll();
+        // Get top 3 highest rated destinations
+        const featured = allDestinations
+          .sort((a, b) => b.rating - a.rating)
+          .slice(0, 3);
+        setFeaturedDestinations(featured);
+      } catch (error) {
+        console.error('Failed to load destinations:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFeaturedDestinations();
+  }, []);
 
   const stats = [
     { number: '500+', label: 'Destinations' },
@@ -150,6 +172,12 @@ const Home: React.FC = () => {
             </p>
           </motion.div>
 
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
+              <span className="ml-4 text-lg text-gray-600">Loading destinations...</span>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {featuredDestinations.map((destination, index) => (
               <motion.div
@@ -161,7 +189,7 @@ const Home: React.FC = () => {
               >
                 <div className="relative overflow-hidden">
                   <img
-                    src={destination.imageUrl}
+                    src={destination.image_url}
                     alt={destination.name}
                     className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                   />
@@ -176,7 +204,7 @@ const Home: React.FC = () => {
                   <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
                     <div className="flex items-center space-x-1">
                       <MapPin className="h-4 w-4" />
-                      <span>{destination.location.state}</span>
+                      <span>{destination.state}</span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <Clock className="h-4 w-4" />
@@ -188,8 +216,8 @@ const Home: React.FC = () => {
                       {calculateDistance(
                         userLocation.lat,
                         userLocation.lng,
-                        destination.location.lat,
-                        destination.location.lng
+                        destination.latitude,
+                        destination.longitude
                       )} km from your location
                     </div>
                   )}
@@ -203,6 +231,7 @@ const Home: React.FC = () => {
               </motion.div>
             ))}
           </div>
+          )}
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
