@@ -76,6 +76,7 @@ const Explore: React.FC = () => {
         setUserLocation(location);
       } catch (error) {
         console.error('Failed to get location:', error);
+        toast.error('Could not get your location. Please enable location services for distance calculations.');
       } finally {
         setIsLoadingLocation(false);
       }
