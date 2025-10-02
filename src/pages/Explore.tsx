@@ -229,7 +229,7 @@ const Explore: React.FC = () => {
               >
                 <span className="mr-2">{category.emoji}</span>
                 {category.name}
-              </button>
+              </motion.button>
             ))}
           </div>
         </div>
