@@ -4,9 +4,15 @@ import { Toaster } from 'react-hot-toast';
 import Navigation from './components/Navigation';
 import Footer from './components/Footer';
 import Home from './pages/Home';
-import Explore from './pages/Explore';
-import Profile from './pages/Profile';
+import About from './pages/About';
+import Heritage from './pages/Heritage';
+import Beaches from './pages/Beaches';
+import HillStations from './pages/HillStations';
+import Spiritual from './pages/Spiritual';
+import Wildlife from './pages/Wildlife';
+import Gallery from './pages/Gallery';
 import Contact from './pages/Contact';
+import Map from './pages/Map';
 
 function App() {
   return (
@@ -16,9 +22,15 @@ function App() {
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/explore" element={<Explore />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/heritage" element={<Heritage />} />
+            <Route path="/beaches" element={<Beaches />} />
+            <Route path="/hill-stations" element={<HillStations />} />
+            <Route path="/spiritual" element={<Spiritual />} />
+            <Route path="/wildlife" element={<Wildlife />} />
+            <Route path="/gallery" element={<Gallery />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/map" element={<Map />} />
           </Routes>
         </main>
         <Footer />
