@@ -1,17 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, MapPin, Star } from 'lucide-react';
-import { destinationService } from '../services/destinationService';
-import { Database } from '../types/database';
-import toast from 'react-hot-toast';
-
-type Destination = Database['public']['Tables']['destinations']['Row'];
+import { Search, Filter, MapPin, Star, Clock, Users } from 'lucide-react';
+import { destinations } from '../data/destinations';
+import { Destination } from '../types';
 
 const Explore: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [destinations, setDestinations] = useState<Destination[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const categories = [
     { id: 'all', name: 'All Categories', emoji: '🗺️' },
@@ -25,34 +21,37 @@ const Explore: React.FC = () => {
     { id: 'adventure', name: 'Adventure', emoji: '🎯' }
   ];
 
-  // Load destinations
-  useEffect(() => {
-    const loadDestinations = async () => {
-      try {
-        const data = await destinationService.getAll();
-        setDestinations(data);
-      } catch (error) {
-        console.error('Failed to load destinations:', error);
-        toast.error('Failed to load destinations');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDestinations();
-  }, []);
-
   const filteredDestinations = useMemo(() => {
     return destinations.filter(destination => {
       const matchesSearch = destination.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           destination.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           destination.location.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            destination.description.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesCategory = selectedCategory === 'all' || destination.category === selectedCategory;
       
       return matchesSearch && matchesCategory;
     });
-  }, [searchTerm, selectedCategory]);
+  }, [searchTerm, selectedCategory, destinations]);
+
+  // Group destinations by category
+  const destinationsByCategory = useMemo(() => {
+    const grouped: { [key: string]: Destination[] } = {};
+    
+    if (selectedCategory === 'all') {
+      // Group all destinations by their categories
+      filteredDestinations.forEach(destination => {
+        if (!grouped[destination.category]) {
+          grouped[destination.category] = [];
+        }
+        grouped[destination.category].push(destination);
+      });
+    } else {
+      // Show only selected category
+      grouped[selectedCategory] = filteredDestinations;
+    }
+    
+    return grouped;
+  }, [filteredDestinations, selectedCategory]);
 
   const DestinationCard: React.FC<{ destination: Destination; index: number }> = ({ destination, index }) => {
     return (
@@ -64,9 +63,13 @@ const Explore: React.FC = () => {
       >
         <div className="relative overflow-hidden">
           <img
-            src={destination.image_url}
+            src={destination.imageUrl}
             alt={destination.name}
             className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = 'https://images.pexels.com/photos/1603650/pexels-photo-1603650.jpeg?auto=compress&cs=tinysrgb&w=800';
+            }}
           />
           <div className="absolute top-4 left-4 bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold capitalize">
             {destination.category}
@@ -80,18 +83,87 @@ const Explore: React.FC = () => {
         
         <div className="p-6">
           <h3 className="text-xl font-bold text-gray-900 mb-2">{destination.name}</h3>
-          <p className="text-gray-600 mb-4">{destination.description}</p>
+          <p className="text-gray-600 mb-4 line-clamp-3">{destination.description}</p>
           
-          <div className="flex items-center space-x-1 text-gray-500 mb-4">
+          <div className="flex items-center space-x-1 text-gray-500 mb-3">
             <MapPin className="h-4 w-4" />
-            <span className="text-sm">{destination.address}, {destination.state}</span>
+            <span className="text-sm">{destination.location.address}, {destination.location.state}</span>
           </div>
+
+          <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+            <div className="flex items-center space-x-1">
+              <Clock className="h-4 w-4" />
+              <span>{destination.duration}</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <span className="text-green-600 font-semibold">
+                {destination.entryFee === 0 ? 'Free Entry' : `₹${destination.entryFee}`}
+              </span>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <p className="text-sm text-gray-600 mb-2">Best Time to Visit:</p>
+            <span className="text-sm bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
+              {destination.bestTime}
+            </span>
+          </div>
+
+          {destination.highlights && destination.highlights.length > 0 && (
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">Highlights:</p>
+              <div className="flex flex-wrap gap-1">
+                {destination.highlights.slice(0, 3).map((highlight, idx) => (
+                  <span key={idx} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">
+                    {highlight}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors duration-200 font-semibold">
             View Details
           </button>
         </div>
       </motion.div>
+    );
+  };
+
+  const CategorySection: React.FC<{ categoryId: string; destinations: Destination[] }> = ({ 
+    categoryId, 
+    destinations: categoryDestinations 
+  }) => {
+    const category = categories.find(cat => cat.id === categoryId);
+    const categoryName = category ? category.name : categoryId.charAt(0).toUpperCase() + categoryId.slice(1);
+    const categoryEmoji = category ? category.emoji : '📍';
+
+    if (categoryDestinations.length === 0) return null;
+
+    return (
+      <div className="mb-12">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="flex items-center space-x-3 mb-6"
+        >
+          <span className="text-3xl">{categoryEmoji}</span>
+          <h2 className="text-2xl font-bold text-gray-900">{categoryName}</h2>
+          <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
+            {categoryDestinations.length} destinations
+          </span>
+        </motion.div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {categoryDestinations.map((destination, index) => (
+            <DestinationCard
+              key={destination.id}
+              destination={destination}
+              index={index}
+            />
+          ))}
+        </div>
+      </div>
     );
   };
 
@@ -110,11 +182,11 @@ const Explore: React.FC = () => {
               Explore India's Wonders
             </h1>
             <p className="text-xl max-w-2xl mx-auto">
-              Discover amazing destinations across different categories with real-time distance and toll information
+              Discover amazing destinations across India with detailed information and beautiful imagery
             </p>
           </motion.div>
 
-          {/* Search and Filter */}
+          {/* Search */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -135,7 +207,7 @@ const Explore: React.FC = () => {
         </div>
       </section>
 
-      {/* Categories */}
+      {/* Categories Filter */}
       <section className="py-8 bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center space-x-2 mb-4">
@@ -157,13 +229,13 @@ const Explore: React.FC = () => {
               >
                 <span className="mr-2">{category.emoji}</span>
                 {category.name}
-              </motion.button>
+              </button>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Destinations Grid */}
+      {/* Destinations by Category */}
       <section className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {loading ? (
@@ -171,15 +243,7 @@ const Explore: React.FC = () => {
               <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
               <span className="ml-4 text-lg text-gray-600">Loading destinations...</span>
             </div>
-          ) : (
-            <>
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">
-              {filteredDestinations.length} destinations found
-            </h2>
-          </div>
-
-          {filteredDestinations.length === 0 ? (
+          ) : Object.keys(destinationsByCategory).length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -190,17 +254,17 @@ const Explore: React.FC = () => {
               <p className="text-gray-600">Try adjusting your search terms or category filter.</p>
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredDestinations.map((destination, index) => (
-                <DestinationCard
-                  key={destination.id}
-                  destination={destination}
-                  index={index}
-                />
-              ))}
+            <div>
+              {Object.entries(destinationsByCategory)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([categoryId, categoryDestinations]) => (
+                  <CategorySection
+                    key={categoryId}
+                    categoryId={categoryId}
+                    destinations={categoryDestinations}
+                  />
+                ))}
             </div>
-          )}
-            </>
           )}
         </div>
       </section>
