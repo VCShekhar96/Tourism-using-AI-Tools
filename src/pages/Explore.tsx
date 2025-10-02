@@ -1,12 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, MapPin, Star, Clock, IndianRupee, Car, Heart } from 'lucide-react';
+import { Search, Filter, MapPin, Star } from 'lucide-react';
 import { destinationService } from '../services/destinationService';
-import { wishlistService } from '../services/wishlistService';
-import { getCurrentLocation, calculateDistance, calculateTollCharges } from '../utils/location';
-import { UserLocation, TollInfo } from '../types';
 import { Database } from '../types/database';
-import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 
 type Destination = Database['public']['Tables']['destinations']['Row'];
@@ -16,11 +12,6 @@ const Explore: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
-  const [tollInfo, setTollInfo] = useState<{ [key: string]: TollInfo }>({});
-  const [wishlistItems, setWishlistItems] = useState<Set<string>>(new Set());
-  const { user } = useAuth();
 
   const categories = [
     { id: 'all', name: 'All Categories', emoji: '🗺️' },
@@ -51,55 +42,6 @@ const Explore: React.FC = () => {
     loadDestinations();
   }, []);
 
-  // Load user's wishlist
-  useEffect(() => {
-    const loadWishlist = async () => {
-      if (!user) return;
-      
-      try {
-        const wishlist = await wishlistService.getUserWishlist(user.id);
-        const wishlistSet = new Set(wishlist.map(item => item.destination_id));
-        setWishlistItems(wishlistSet);
-      } catch (error) {
-        console.error('Failed to load wishlist:', error);
-      }
-    };
-
-    loadWishlist();
-  }, [user]);
-
-  useEffect(() => {
-    const getLocation = async () => {
-      setIsLoadingLocation(true);
-      try {
-        const location = await getCurrentLocation();
-        setUserLocation(location);
-      } catch (error) {
-        console.error('Failed to get location:', error);
-      } finally {
-        setIsLoadingLocation(false);
-      }
-    };
-
-    getLocation();
-  }, []);
-
-  useEffect(() => {
-    if (userLocation) {
-      const tollData: { [key: string]: TollInfo } = {};
-      destinations.forEach(destination => {
-        const distance = calculateDistance(
-          userLocation.lat,
-          userLocation.lng,
-          destination.latitude,
-          destination.longitude
-        );
-        tollData[destination.id] = calculateTollCharges(distance);
-      });
-      setTollInfo(tollData);
-    }
-  }, [userLocation]);
-
   const filteredDestinations = useMemo(() => {
     return destinations.filter(destination => {
       const matchesSearch = destination.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -112,45 +54,7 @@ const Explore: React.FC = () => {
     });
   }, [searchTerm, selectedCategory]);
 
-  const toggleWishlist = async (destinationId: string) => {
-    if (!user) {
-      toast.error('Please sign in to add to wishlist');
-      return;
-    }
-
-    try {
-      const isInWishlist = wishlistItems.has(destinationId);
-      
-      if (isInWishlist) {
-        await wishlistService.remove(user.id, destinationId);
-        setWishlistItems(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(destinationId);
-          return newSet;
-        });
-        toast.success('Removed from wishlist');
-      } else {
-        await wishlistService.add(user.id, destinationId);
-        setWishlistItems(prev => new Set(prev).add(destinationId));
-        toast.success('Added to wishlist');
-      }
-    } catch (error) {
-      console.error('Wishlist error:', error);
-      toast.error('Failed to update wishlist');
-    }
-  };
-
   const DestinationCard: React.FC<{ destination: Destination; index: number }> = ({ destination, index }) => {
-    const distance = userLocation ? calculateDistance(
-      userLocation.lat,
-      userLocation.lng,
-      destination.latitude,
-      destination.longitude
-    ) : null;
-
-    const toll = tollInfo[destination.id];
-    const isInWishlist = wishlistItems.has(destination.id);
-
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -176,71 +80,16 @@ const Explore: React.FC = () => {
         
         <div className="p-6">
           <h3 className="text-xl font-bold text-gray-900 mb-2">{destination.name}</h3>
-          <p className="text-gray-600 mb-4 line-clamp-2">{destination.description}</p>
+          <p className="text-gray-600 mb-4">{destination.description}</p>
           
-          <div className="space-y-3 mb-4">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center space-x-1 text-gray-500">
-                <MapPin className="h-4 w-4" />
-                <span>{destination.address}</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center space-x-1 text-gray-500">
-                <Clock className="h-4 w-4" />
-                <span>{destination.duration}</span>
-              </div>
-              <div className="flex items-center space-x-1 text-gray-500">
-                <IndianRupee className="h-4 w-4" />
-                <span>₹{destination.entry_fee}</span>
-              </div>
-            </div>
-
-            {distance && toll && (
-              <div className="bg-blue-50 rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-blue-700 font-medium">Distance from you:</span>
-                  <span className="text-blue-900 font-bold">{distance} km</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center space-x-1 text-blue-700">
-                    <Car className="h-4 w-4" />
-                    <span>Estimated toll:</span>
-                  </div>
-                  <span className="text-blue-900 font-bold">₹{toll.estimatedToll}</span>
-                </div>
-                <div className="text-xs text-blue-600">{toll.duration} • {toll.route}</div>
-              </div>
-            )}
+          <div className="flex items-center space-x-1 text-gray-500 mb-4">
+            <MapPin className="h-4 w-4" />
+            <span className="text-sm">{destination.address}, {destination.state}</span>
           </div>
 
-          <div className="flex flex-wrap gap-2 mb-4">
-            {destination.highlights?.slice(0, 3).map((highlight, idx) => (
-              <span
-                key={idx}
-                className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-              >
-                {highlight}
-              </span>
-            ))}
-          </div>
-
-          <div className="flex space-x-2">
-            <button
-              onClick={() => toggleWishlist(destination.id)}
-              className={`p-2 rounded-lg transition-all duration-200 ${
-                isInWishlist
-                  ? 'bg-red-100 text-red-600 hover:bg-red-200'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              <Heart className={`h-5 w-5 ${isInWishlist ? 'fill-current' : ''}`} />
-            </button>
-            <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors duration-200 font-semibold">
-              Book Now
-            </button>
-          </div>
+          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors duration-200 font-semibold">
+            View Details
+          </button>
         </div>
       </motion.div>
     );
@@ -314,16 +163,6 @@ const Explore: React.FC = () => {
         </div>
       </section>
 
-      {/* Location Status */}
-      {isLoadingLocation && (
-        <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
-          <div className="flex items-center">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-400 border-t-transparent mr-3"></div>
-            <p className="text-blue-700">Getting your location for distance calculations...</p>
-          </div>
-        </div>
-      )}
-
       {/* Destinations Grid */}
       <section className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -338,12 +177,6 @@ const Explore: React.FC = () => {
             <h2 className="text-2xl font-bold text-gray-900">
               {filteredDestinations.length} destinations found
             </h2>
-            {userLocation && (
-              <div className="flex items-center space-x-2 text-green-600">
-                <MapPin className="h-5 w-5" />
-                <span className="text-sm font-medium">Location detected - showing distances</span>
-              </div>
-            )}
           </div>
 
           {filteredDestinations.length === 0 ? (
