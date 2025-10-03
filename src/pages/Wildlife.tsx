@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Clock, Star, TreePine, Binoculars, Camera } from 'lucide-react';
+import { MapPin, Clock, Star, TreePine, Binary as Binoculars, Camera } from 'lucide-react';
 
 const Wildlife: React.FC = () => {
   const wildlifeDestinations = [
