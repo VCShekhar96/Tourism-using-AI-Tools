@@ -3,35 +3,52 @@ Access link: https://travel-vibe-next.lovable.app
 
 ---
 
-### 🌍 **3. Tourism-using-AI-Tools (TypeScript / Web App)**
-
-```markdown
 # 🌍 Tourism using AI Tools
 
-An AI-powered tourism platform designed to help travelers explore destinations intelligently. It leverages AI tools for trip planning, recommendations, and user interaction.
+An **AI-powered tourism platform** built with **TypeScript** that generates intelligent travel suggestions, personalized itineraries, and destination insights using integrated AI models and APIs.
 
 ---
 
-## 📋 Features
-- AI-driven destination suggestions  
-- Chatbot for travel planning  
-- Interactive UI with modern design  
-- Integration with external APIs for real-time data  
+## 🧾 Overview
+
+The **Tourism using AI Tools** project leverages Artificial Intelligence to make travel planning smarter and more interactive.  
+It analyzes user preferences such as budget, time, and interest to recommend tourist destinations and create personalized itineraries dynamically.
+
+This project demonstrates how modern AI APIs can be integrated into a TypeScript-based application to enhance user experience in the tourism industry.
 
 ---
 
-## 💻 Tech Stack
-- **TypeScript**
-- **Next.js / React**
-- **OpenAI API**
-- **Tailwind CSS**
+## ✨ Features
+
+- 🤖 **AI Travel Recommender** — Suggests destinations using AI-generated insights.  
+- 🧭 **Smart Itinerary Planner** — Builds a complete travel schedule based on user preferences.  
+- 🗣️ **Virtual Tour Guide Chatbot** — Provides interactive travel guidance via natural conversation.  
+- 🌐 **Live Data Integration** — Fetches weather and travel information using public APIs.  
+- 🎨 **Responsive Design** — Built with modern UI elements for smooth mobile and desktop experience.
 
 ---
 
-## ⚙️ Setup
+## 🧰 Tech Stack
+
+- **Language:** TypeScript  
+- **Frontend:** HTML5, CSS3  
+- **Backend (optional):** Node.js / Express  
+- **APIs:** OpenAI API / Tourism or Map APIs  
+
+---
+
+## ⚙️ Installation & Setup
 
 ```bash
+# Clone this repository
 git clone https://github.com/VCShekhar96/Tourism-using-AI-Tools.git
+
+# Navigate to project directory
 cd Tourism-using-AI-Tools
+
+# Install dependencies
 npm install
-npm run dev
+
+# Start development server
+npm start
+
